@@ -1,0 +1,132 @@
+config|smtp-session-timeout|300
+config|subsystem|smtp-in
+config|subsystem|smtp-out
+config|admd|localhost.localdomain
+config|ready
+register|filter|smtp-in|auth
+register|filter|smtp-in|commit
+register|filter|smtp-in|connect
+register|filter|smtp-in|data
+register|filter|smtp-in|data-line
+register|filter|smtp-in|ehlo
+register|filter|smtp-in|helo
+register|filter|smtp-in|mail-from
+register|filter|smtp-in|rcpt-to
+register|filter|smtp-in|starttls
+register|report|smtp-in|filter-report
+register|report|smtp-in|filter-response
+register|report|smtp-in|link-auth
+register|report|smtp-in|link-connect
+register|report|smtp-in|link-disconnect
+register|report|smtp-in|link-greeting
+register|report|smtp-in|link-identify
+register|report|smtp-in|link-tls
+register|report|smtp-in|protocol-client
+register|report|smtp-in|protocol-server
+register|report|smtp-in|timeout
+register|report|smtp-in|tx-begin
+register|report|smtp-in|tx-commit
+register|report|smtp-in|tx-data
+register|report|smtp-in|tx-envelope
+register|report|smtp-in|tx-mail
+register|report|smtp-in|tx-rcpt
+register|report|smtp-in|tx-reset
+register|report|smtp-in|tx-rollback
+register|report|smtp-out|filter-report
+register|report|smtp-out|filter-response
+register|report|smtp-out|link-auth
+register|report|smtp-out|link-connect
+register|report|smtp-out|link-disconnect
+register|report|smtp-out|link-greeting
+register|report|smtp-out|link-identify
+register|report|smtp-out|link-tls
+register|report|smtp-out|protocol-client
+register|report|smtp-out|protocol-server
+register|report|smtp-out|timeout
+register|report|smtp-out|tx-begin
+register|report|smtp-out|tx-commit
+register|report|smtp-out|tx-data
+register|report|smtp-out|tx-envelope
+register|report|smtp-out|tx-mail
+register|report|smtp-out|tx-rcpt
+register|report|smtp-out|tx-reset
+register|report|smtp-out|tx-rollback
+register|ready
+report|0.6|1649982939.501313|smtp-in|link-connect|0e9148a5ee948da5|localhost|pass|[::1]:52442|[::1]:25
+filter|0.6|1649982939.501421|smtp-in|connect|0e9148a5ee948da5|91bf3cbfdab17d69|localhost|[::1]
+filter-result|0e9148a5ee948da5|91bf3cbfdab17d69|proceed
+report|0.6|1649982939.502204|smtp-in|filter-response|0e9148a5ee948da5|connected|proceed
+report|0.6|1649982939.502217|smtp-in|protocol-server|0e9148a5ee948da5|220 localhost.localdomain ESMTP OpenSMTPD
+report|0.6|1649982939.502229|smtp-in|link-greeting|0e9148a5ee948da5|localhost.localdomain
+report|0.6|1649982939.507925|smtp-in|protocol-client|0e9148a5ee948da5|EHLO home.local
+filter|0.6|1649982939.508024|smtp-in|ehlo|0e9148a5ee948da5|91bf3cc1976c487f|home.local
+filter-result|0e9148a5ee948da5|91bf3cc1976c487f|proceed
+report|0.6|1649982939.510035|smtp-in|filter-response|0e9148a5ee948da5|ehlo|proceed
+report|0.6|1649982939.510042|smtp-in|link-identify|0e9148a5ee948da5|EHLO|home.local
+report|0.6|1649982939.510051|smtp-in|protocol-server|0e9148a5ee948da5|250-localhost.localdomain Hello home.local [::1], pleased to meet you
+report|0.6|1649982939.510062|smtp-in|protocol-server|0e9148a5ee948da5|250-8BITMIME
+report|0.6|1649982939.510071|smtp-in|protocol-server|0e9148a5ee948da5|250-ENHANCEDSTATUSCODES
+report|0.6|1649982939.510080|smtp-in|protocol-server|0e9148a5ee948da5|250-SIZE 36700160
+report|0.6|1649982939.510088|smtp-in|protocol-server|0e9148a5ee948da5|250-DSN
+report|0.6|1649982939.510097|smtp-in|protocol-server|0e9148a5ee948da5|250 HELP
+report|0.6|1649982939.525713|smtp-in|protocol-client|0e9148a5ee948da5|MAIL FROM:<from@home.local>
+filter|0.6|1649982939.525843|smtp-in|mail-from|0e9148a5ee948da5|91bf3cc4d7277d48|from@home.local
+filter-result|0e9148a5ee948da5|91bf3cc4d7277d48|proceed
+report|0.6|1649982939.526482|smtp-in|filter-response|0e9148a5ee948da5|mail-from|proceed
+report|0.6|1649982939.526843|smtp-in|protocol-server|0e9148a5ee948da5|250 2.0.0 Ok
+report|0.6|1649982939.526850|smtp-in|tx-begin|0e9148a5ee948da5|33aa61dd
+report|0.6|1649982939.526855|smtp-in|tx-mail|0e9148a5ee948da5|33aa61dd|ok|from@home.local
+report|0.6|1649982939.527468|smtp-in|protocol-client|0e9148a5ee948da5|RCPT TO:<to@home.local>
+filter|0.6|1649982939.527540|smtp-in|rcpt-to|0e9148a5ee948da5|91bf3cc52631e363|to@home.local
+filter-result|0e9148a5ee948da5|91bf3cc52631e363|proceed
+report|0.6|1649982939.528039|smtp-in|filter-response|0e9148a5ee948da5|rcpt-to|proceed
+report|0.6|1649982939.528887|smtp-in|tx-envelope|0e9148a5ee948da5|33aa61dd|33aa61dd7479c0bd
+report|0.6|1649982939.528899|smtp-in|protocol-server|0e9148a5ee948da5|250 2.1.5 Destination address valid: Recipient ok
+report|0.6|1649982939.528904|smtp-in|tx-rcpt|0e9148a5ee948da5|33aa61dd|ok|to@home.local
+report|0.6|1649982939.529901|smtp-in|protocol-client|0e9148a5ee948da5|DATA
+filter|0.6|1649982939.529983|smtp-in|data|0e9148a5ee948da5|91bf3cc6a6376c8f|
+filter-result|0e9148a5ee948da5|91bf3cc6a6376c8f|proceed
+report|0.6|1649982939.530480|smtp-in|filter-response|0e9148a5ee948da5|data|proceed
+filter|0.6|1649982939.531151|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|Received: from home.local (localhost [::1])
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|Received: from home.local (localhost [::1])
+filter|0.6|1649982939.531161|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|	by localhost.localdomain (OpenSMTPD) with ESMTP id 33aa61dd
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|	by localhost.localdomain (OpenSMTPD) with ESMTP id 33aa61dd
+filter|0.6|1649982939.531166|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|	for <to@home.local>;
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|	for <to@home.local>;
+filter|0.6|1649982939.531172|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|	Fri, 15 Apr 2022 00:35:39 +0000 (UTC)
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|	Fri, 15 Apr 2022 00:35:39 +0000 (UTC)
+report|0.6|1649982939.531003|smtp-in|protocol-server|0e9148a5ee948da5|354 Enter mail, end with "." on a line by itself
+report|0.6|1649982939.531007|smtp-in|tx-data|0e9148a5ee948da5|33aa61dd|ok
+filter|0.6|1649982939.534731|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|Date: Fri, 15 Apr 2022 02:35:39 +0200
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|Date: Fri, 15 Apr 2022 02:35:39 +0200
+filter|0.6|1649982939.534742|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|To: to@home.local
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|To: to@home.local
+filter|0.6|1649982939.534748|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|From: from@home.local
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|From: from@home.local
+filter|0.6|1649982939.534753|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|Subject: test Fri, 15 Apr 2022 02:35:39 +0200
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|Subject: test Fri, 15 Apr 2022 02:35:39 +0200
+filter|0.6|1649982939.534758|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|Message-Id: <20220415023539.1170958@>
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|Message-Id: <20220415023539.1170958@>
+filter|0.6|1649982939.534764|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|X-Mailer: swaks v20190914.0 jetmore.org/john/code/swaks/
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|X-Mailer: swaks v20190914.0 jetmore.org/john/code/swaks/
+filter|0.6|1649982939.534769|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter|0.6|1649982939.534774|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|This is a test mailing
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|This is a test mailing
+filter|0.6|1649982939.534779|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter|0.6|1649982939.534784|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|
+filter|0.6|1649982939.534789|smtp-in|data-line|0e9148a5ee948da5|91bf3cc79e4c901e|.
+filter-dataline|0e9148a5ee948da5|91bf3cc79e4c901e|.
+report|0.6|1649982939.537363|smtp-in|protocol-client|0e9148a5ee948da5|.
+filter|0.6|1649982939.537451|smtp-in|commit|0e9148a5ee948da5|91bf3cc8ac1febef|
+filter-result|0e9148a5ee948da5|91bf3cc8ac1febef|proceed
+report|0.6|1649982939.537949|smtp-in|filter-response|0e9148a5ee948da5|commit|proceed
+report|0.6|1649982939.538815|smtp-in|protocol-server|0e9148a5ee948da5|250 2.0.0 33aa61dd Message accepted for delivery
+report|0.6|1649982939.538829|smtp-in|tx-commit|0e9148a5ee948da5|33aa61dd|577
+report|0.6|1649982939.538834|smtp-in|tx-reset|0e9148a5ee948da5|33aa61dd
+report|0.6|1649982939.541595|smtp-in|protocol-client|0e9148a5ee948da5|QUIT
+report|0.6|1649982939.541759|smtp-in|filter-response|0e9148a5ee948da5|quit|proceed
+report|0.6|1649982939.541767|smtp-in|protocol-server|0e9148a5ee948da5|221 2.0.0 Bye
+report|0.6|1649982939.541853|smtp-in|link-disconnect|0e9148a5ee948da5
