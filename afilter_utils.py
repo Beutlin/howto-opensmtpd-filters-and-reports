@@ -56,6 +56,8 @@ class Parser:
         ctx = Context(StateMgr.get(sid), timestamp, sid)
         func = getattr(clazz, phase.replace('-', '_'))
         func(ctx, *payload)
+        if func.__name__ == 'link_disconnect':
+            StateMgr.delete(sid)
 
     @staticmethod
     def parse_filter(line):
