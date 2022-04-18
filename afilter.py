@@ -1,40 +1,46 @@
-from afilter_utils import Parser
-from afilter_utils import IReportSmtpIn, IReportSmtpOut, IFilterSmtpIn
+from pathlib import Path
 
-logfile = '/tmp/opensmtpd_afilter.log'
+from afilter_utils import IReportSmtpIn, IReportSmtpOut, IFilterSmtpIn, Parser, ResultForFilter
 
-
-class Colors:
-    # PROPERTY = (color, do_log)
-    CONFIG = ('\033[35m', 1)
-    CONFIG_RESP = ('\033[32m', 1)
-    REPORT_IN = ('\033[35m', 1)
-    REPORT_OUT = ('\033[35m', 1)
-    FILTER_IN = ('\033[35m', 1)
-    FILTER_IN_RESP = ('\033[32m', 1)
-    END = '\033[0m'
+LOGFILE = './out.log'
 
 
+# noinspection PyMethodMayBeStatic
+class FilterSmtpIn(IFilterSmtpIn):
+    def _some_private_function(self):
+        pass
+
+    # for further methods see interface
+    def rcpt_to(self, ctx, address):
+        # _some_private_function()
+        return ResultForFilter(ctx).proceed()
+
+    def mail_from(self, ctx, address):
+        # _some_private_function()
+        return ResultForFilter(ctx).proceed()
+
+    # for further methods see interface
+
+
+# noinspection PyMethodMayBeStatic
 class ReportSmtpIn(IReportSmtpIn):
-    @staticmethod
-    def link_connect(ctx, rdns, fcrdns, src, dest):
-        # your implementation
+    # for further methods see interface
+    def link_connect(self, ctx, rdns, fcrdns, src, dest):
+        pass
+
+    def link_disconnect(self, ctx):
         pass
 
 
-class ReportSmtpOut(IReportSmtpOut):
-    pass
+def main():
+    class_method_list = [FilterSmtpIn.rcpt_to, FilterSmtpIn.mail_from, ReportSmtpIn, IReportSmtpOut]
+    parser = Parser(
+        debugmode=True,
+        logfile=Path(LOGFILE) if LOGFILE else None
+    )
+    parser.prepare_observers(class_method_list)
+    parser.dispatch()
 
 
-class FilterSmtpIn(IFilterSmtpIn):
-    pass
-
-
-hooks = [
-    ReportSmtpIn, ReportSmtpOut, FilterSmtpIn
-]
-
-Parser.register_hooks(hooks)
-Parser.register_logcolors(Colors)
-Parser.register_logfile(logfile)
-Parser.dispatch()
+if __name__ == '__main__':
+    main()

@@ -29,7 +29,7 @@ match from local for any action "outbound"
 See also: [./sample_log.txt](./sample_log.txt)
 
 
-## Further ideas
+## Some ideas
 1. Implement abstract methods like FilterSmtpIn->mail_from(ctx, address)
 ```
 class ReportSmtpIn(IReportSmtpIn):
@@ -45,4 +45,7 @@ hooks = [
 ]
 ```
 
-3. Clear state in tx-reset() or link-disconnect() method of ReportSmtpIn.
+## Further links:
+- https://man.openbsd.org/smtpd-filters.7
+- https://poolp.org/posts/2018-12-19/more-on-opensmtpd-filters/
+- https://poolp.org/posts/2019-12-24/december-2019-opensmtpd-and-filters-work-articles-and-goodies/

@@ -1,362 +1,156 @@
 import re
 import sys
-from pathlib import Path
-from sys import stdin, stdout, stderr
+import types
 from dataclasses import dataclass
+from enum import Enum, auto
+from pathlib import Path
+from typing import Callable
+
+
+###############################################################################
+# Config
+###############################################################################
+
+class LogColor:
+    INCOMING = '\033[35m'
+    OUTCOMING = '\033[32m'
+    LOG = '\033[31m'
+    END = '\033[0m'
 
 
 ###############################################################################
 # Parser
 ###############################################################################
+
+def log(line: str):
+    print(f'{LogColor.LOG}{line}{LogColor.END}', file=sys.stderr, flush=True)
+
+
 class Parser:
-    hooks = {}
-    colors = None
-    actionClass = {}
-    logfile = None
+    event_list = []
+    event_handlers = {}
 
-    @staticmethod
-    def send_hooks():
-        for hook in sorted(Parser.hooks):
-            response_line = f'register|{hook}'
-            Parser.send(Parser.colors.CONFIG_RESP, response_line)
-        Parser.send(Parser.colors.CONFIG_RESP, 'register|ready')
-        pass
+    def __init__(self, logfile: Path = None, debugmode: bool = False):
+        self.logfile = logfile
+        self.debugmode = debugmode
 
-    @staticmethod
-    def send(opts, line):
-        Parser.log(opts, line)
-        print(line, file=stdout, flush=True)
+    def _log(self, line, logcolor):
+        if self.debugmode and logcolor:
+            print(f'{logcolor}{line}{LogColor.END}', file=sys.stderr, flush=True)
+        if self.logfile:
+            with Path(self.logfile).open("a") as file:
+                file.write(line + '\n')
 
-    @staticmethod
-    def log(opts, line):
-        color_tag, do_log = opts
-        color_end = Parser.colors.END if color_tag else ''
-        if do_log:
-            print(f'{color_tag}{line}{color_end}', file=stderr, flush=True)
-        if Parser.logfile:
-            with Path(Parser.logfile).open("a") as file:
-                file.write(line+'\n')
+    # noinspection PyUnusedLocal
+    def _in(self, logline_type, line):
+        self._log(line, LogColor.INCOMING)
 
-    @staticmethod
-    def parse_config(line):
-        Parser.log(Parser.colors.CONFIG, line)
+    # noinspection PyUnusedLocal
+    def _out(self, logline_type, line):
+        self._log(line, LogColor.OUTCOMING)
+        print(line, file=sys.stdout, flush=True)
+
+    def _register_observers(self):
+        for event_name in sorted(self.event_list):
+            response_line = f'register|{event_name}'
+            self._out(LogLineType.RESPONSE_CONFIG, response_line)
+        self._out(LogLineType.RESPONSE_CONFIG, 'register|ready')
+
+    def parse_config(self, line: str):
+        self._in(LogLineType.CONFIG, line)
         config = StateMgr.get('config')
         if line != 'config|ready':
             cmd, key, value = line.split('|', 2)
             config[key] = f'{config[key]}|{value}' if key in value else value
         else:
-            Parser.send_hooks()
+            self._register_observers()
 
-    @staticmethod
-    def parse_report(line):
+    def parse_report(self, line: str):
         protocol, version, timestamp, subsystem, phase, sid, *payload = line.split('|')
-        clazz, report_color = (Parser.actionClass['ReportSmtpOut'], Parser.colors.REPORT_OUT)\
-            if subsystem == 'smtp-out' else (Parser.actionClass['ReportSmtpIn'], Parser.colors.REPORT_IN)
-        Parser.log(report_color, line)
+        clazz, logline_type = (self.event_handlers['ReportSmtpOut'], LogLineType.REPORT_OUT) \
+            if subsystem == 'smtp-out' else (self.event_handlers['ReportSmtpIn'], LogLineType.REPORT_IN)
+        self._in(logline_type, line)
         ctx = Context(StateMgr.get(sid), timestamp, sid)
         func = getattr(clazz, phase.replace('-', '_'))
         func(ctx, *payload)
         if func.__name__ == 'link_disconnect':
             StateMgr.delete(sid)
 
-    @staticmethod
-    def parse_filter(line):
+    def parse_filter(self, line: str):
         protocol, version, timestamp, subsystem, phase, sid, token, *payload = line.split('|')
-        clazz, color1, color2 = (Parser.actionClass['FilterSmtpIn'], Parser.colors.FILTER_IN,
-                                 Parser.colors.FILTER_IN_RESP)
-        Parser.log(color1, line)
+        clazz, logline_type_request, logline_type_response = (self.event_handlers['FilterSmtpIn'],
+                                                              LogLineType.FILTER_IN, LogLineType.RESPONSE_FILTER)
+        self._in(logline_type_request, line)
         ctx = Context(StateMgr.get(sid), timestamp, sid, token)
         func = getattr(clazz, phase.replace('-', '_'))
         result = func(ctx, *payload)
-        Parser.send(color2, result)
+        self._out(logline_type_response, result)
 
-    @staticmethod
-    def read(line):
+    def read(self, line):
         line = line.strip()
         if line.startswith('config|'):
-            Parser.parse_config(line)
+            self.parse_config(line)
         if line.startswith('report|'):
-            Parser.parse_report(line)
+            self.parse_report(line)
         if line.startswith('filter|'):
-            Parser.parse_filter(line)
+            self.parse_filter(line)
 
-    @staticmethod
-    def dispatch():
-        if not Parser.hooks:
-            raise Exception('Please register hooks')
-        if not Parser.colors:
-            raise Exception('Please register logcolors')
+    def dispatch(self):
         while True:
-            line = stdin.readline().strip()
-            Parser.read(line)
+            line = sys.stdin.readline().strip()
+            self.read(line)
+            if line == 'exit':
+                break
 
-    @staticmethod
-    def register_logcolors(colors):
-        Parser.colors = colors
-
-    @staticmethod
-    def register_logfile(logfile):
-        Parser.logfile = logfile
-
-    @staticmethod
-    def register_hooks(eventlist):
-        triggers = set()
-        for e in eventlist:
-            if isinstance(e, type):
-                clazz = e
-                classname = e.__name__
-                functions = [f for f in dir(clazz) if not f.startswith('_')]
-            else:
-                clazz = vars(sys.modules[e.__module__])[e.__qualname__.split('.')[0]]
-                classname, fun = e.__qualname__.split('.')
+    def prepare_observers(self, class_method_list: list[Callable]):
+        event_list = set()
+        handlers = {}
+        for e in class_method_list:
+            if isinstance(e, types.MethodType):
+                clazz = e.__self__
+                classtype = type(clazz)
+                classname = classtype.__name__
                 functions = [e.__name__]
+            elif isinstance(e, types.FunctionType):
+                classname = e.__qualname__.split('.')[0]
+                classtype = vars(sys.modules[e.__module__])[classname]
+                clazz = classtype()
+                functions = [e.__name__]
+            elif isinstance(e, type):
+                clazz = e()
+                classtype = e
+                classname = e.__name__
+                functions = [f for f in dir(classtype) if not f.startswith('_')]
+            else:
+                clazz = e
+                classtype = type(clazz)
+                classname = classtype.__name__
+                functions = [f for f in dir(classtype) if not f.startswith('_')]
             for fun in functions:
-                Parser.actionClass[clazz.__name__] = clazz
                 classname2 = classname[1:] if classname.startswith('I') else classname
+                handlers[classname2] = clazz
                 protocol, system, inout = re.findall('[A-Z][^A-Z]*', classname2)
                 subsystem = f'{system.lower()}-{inout.lower()}'
                 fname = fun.replace('_', '-')
-                triggers.add(f'{protocol.lower()}|{subsystem}|{fname}')
-        Parser.hooks = triggers
+                event_list.add(f'{protocol.lower()}|{subsystem}|{fname}')
+        self.event_list = event_list
+        self.event_handlers = handlers
+
+
+# noinspection PyArgumentList
+class LogLineType(Enum):
+    LOG = auto()
+    CONFIG = auto()
+    REPORT_IN = auto()
+    REPORT_OUT = auto()
+    FILTER_IN = auto()
+    RESPONSE_CONFIG = auto()
+    RESPONSE_FILTER = auto()
+
 
 ###############################################################################
 # Models
 ###############################################################################
-
-
-class IReportSmtpIn:
-    @staticmethod
-    def link_connect(ctx, rdns, fcrdns, src, dest):
-        pass
-
-    @staticmethod
-    def link_greeting(ctx, hostname):
-        pass
-
-    @staticmethod
-    def link_identify(ctx, method, identity):
-        pass
-
-    @staticmethod
-    def link_tls(ctx, tls_string):
-        pass
-
-    @staticmethod
-    def link_disconnect(ctx):
-        pass
-
-    @staticmethod
-    def link_auth(ctx, username, result):
-        pass
-
-    @staticmethod
-    def tx_reset(ctx, message_id):
-        pass
-
-    @staticmethod
-    def tx_begin(ctx, message_id):
-        pass
-
-    @staticmethod
-    def tx_mail(ctx, message_id, result, address):
-        pass
-
-    @staticmethod
-    def tx_rcpt(ctx, message_id, result, address):
-        pass
-
-    @staticmethod
-    def tx_envelope(ctx, message_id, envelope_id):
-        pass
-
-    @staticmethod
-    def tx_data(ctx, message_id, result):
-        pass
-
-    @staticmethod
-    def tx_commit(ctx, message_id, message_size):
-        pass
-
-    @staticmethod
-    def tx_rollback(ctx, message_id):
-        pass
-
-    @staticmethod
-    def protocol_client(ctx, command):
-        pass
-
-    @staticmethod
-    def protocol_server(ctx, response):
-        pass
-
-    @staticmethod
-    def filter_report(ctx, filter_kind, name, message):
-        pass
-
-    @staticmethod
-    def filter_response(ctx, phase, response, param=None):
-        pass
-
-    @staticmethod
-    def timeout(ctx, phase):
-        pass
-
-
-# noinspection PyUnusedLocal
-class IReportSmtpOut:
-    @staticmethod
-    def link_connect(ctx, rdns, fcrdns, src, dest):
-        pass
-
-    @staticmethod
-    def link_greeting(ctx, hostname):
-        pass
-
-    @staticmethod
-    def link_identify(ctx, method, identity):
-        pass
-
-    @staticmethod
-    def link_tls(ctx, tls_string):
-        pass
-
-    @staticmethod
-    def link_disconnect(ctx):
-        pass
-
-    @staticmethod
-    def link_auth(ctx, username, result):
-        pass
-
-    @staticmethod
-    def tx_reset(ctx, message_id):
-        pass
-
-    @staticmethod
-    def tx_begin(ctx, message_id):
-        pass
-
-    @staticmethod
-    def tx_mail(ctx, message_id, result, address):
-        pass
-
-    @staticmethod
-    def tx_rcpt(ctx, message_id, result, address):
-        pass
-
-    @staticmethod
-    def tx_envelope(ctx, message_id, envelope_id):
-        pass
-
-    @staticmethod
-    def tx_data(ctx, message_id, result):
-        pass
-
-    @staticmethod
-    def tx_commit(ctx, message_id, message_size):
-        pass
-
-    @staticmethod
-    def tx_rollback(ctx, message_id):
-        pass
-
-    @staticmethod
-    def protocol_client(ctx, command):
-        pass
-
-    @staticmethod
-    def protocol_server(ctx, response):
-        pass
-
-    @staticmethod
-    def filter_report(ctx, filter_kind, name, message):
-        pass
-
-    @staticmethod
-    def filter_response(ctx, phase, response, param=None):
-        pass
-
-    @staticmethod
-    def timeout(ctx, phase):
-        pass
-
-
-# noinspection PyUnusedLocal
-class IFilterSmtpIn:
-    @staticmethod
-    def connect(ctx, src, dest):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def helo(ctx, identity):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def ehlo(ctx, identity):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def starttls(ctx, ssl_string):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def auth(ctx, auth):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def mail_from(ctx, address):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def rcpt_to(ctx, address):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def data(ctx, args):
-        return IResultForFilter(ctx).proceed()
-
-    @staticmethod
-    def data_line(ctx, line):
-        return IResultForFilter(ctx).dataline(line)
-
-    @staticmethod
-    def commit(ctx, args):
-        return IResultForFilter(ctx).proceed()
-
-
-class IResultForFilter:
-    def __init__(self, ctx):
-        self.ctx = ctx
-
-    def _send(self, cmd, *args):
-        if cmd == 'dataline':
-            result = '|'.join(['filter-dataline', self.ctx.sid, self.ctx.token, args[0]])
-        else:
-            result = '|'.join(['filter-result', self.ctx.sid, self.ctx.token, cmd, *args])
-        return result
-
-    def proceed(self):
-        return self._send('proceed')
-
-    def junk(self):
-        return self._send('junk')
-
-    def reject(self, error):
-        return self._send('reject', error)
-
-    def disconnect(self, error):
-        return self._send('disconnect', error)
-
-    def rewrite(self, parameter):
-        return self._send('rewrite', parameter)
-
-    def report(self, parameter):
-        return self._send('report', parameter)
-
-    def dataline(self, line):
-        return self._send('dataline', line)
-
-
 @dataclass
 class Context:
     state: dict
@@ -371,15 +165,199 @@ class Context:
         self.token = token
 
 
+class IReportSmtpIn:
+    def link_connect(self, ctx: Context, rdns, fcrdns, src, dest):
+        pass
+
+    def link_greeting(self, ctx: Context, hostname):
+        pass
+
+    def link_identify(self, ctx: Context, method, identity):
+        pass
+
+    def link_tls(self, ctx: Context, tls_string):
+        pass
+
+    def link_disconnect(self, ctx: Context):
+        pass
+
+    def link_auth(self, ctx: Context, username, result):
+        pass
+
+    def tx_reset(self, ctx: Context, message_id):
+        pass
+
+    def tx_begin(self, ctx: Context, message_id):
+        pass
+
+    def tx_mail(self, ctx: Context, message_id, result, address):
+        pass
+
+    def tx_rcpt(self, ctx: Context, message_id, result, address):
+        pass
+
+    def tx_envelope(self, ctx: Context, message_id, envelope_id):
+        pass
+
+    def tx_data(self, ctx: Context, message_id, result):
+        pass
+
+    def tx_commit(self, ctx: Context, message_id, message_size):
+        pass
+
+    def tx_rollback(self, ctx: Context, message_id):
+        pass
+
+    def protocol_client(self, ctx: Context, command):
+        pass
+
+    def protocol_server(self, ctx: Context, response):
+        pass
+
+    def filter_report(self, ctx: Context, filter_kind, name, message):
+        pass
+
+    def filter_response(self, ctx: Context, phase, response, param=None):
+        pass
+
+    def timeout(self, ctx: Context, phase):
+        pass
+
+
+class IReportSmtpOut:
+    def link_connect(self, ctx: Context, rdns, fcrdns, src, dest):
+        pass
+
+    def link_greeting(self, ctx: Context, hostname):
+        pass
+
+    def link_identify(self, ctx: Context, method, identity):
+        pass
+
+    def link_tls(self, ctx: Context, tls_string):
+        pass
+
+    def link_disconnect(self, ctx: Context):
+        pass
+
+    def link_auth(self, ctx: Context, username, result):
+        pass
+
+    def tx_reset(self, ctx: Context, message_id):
+        pass
+
+    def tx_begin(self, ctx: Context, message_id):
+        pass
+
+    def tx_mail(self, ctx: Context, message_id, result, address):
+        pass
+
+    def tx_rcpt(self, ctx: Context, message_id, result, address):
+        pass
+
+    def tx_envelope(self, ctx: Context, message_id, envelope_id):
+        pass
+
+    def tx_data(self, ctx: Context, message_id, result):
+        pass
+
+    def tx_commit(self, ctx: Context, message_id, message_size):
+        pass
+
+    def tx_rollback(self, ctx: Context, message_id):
+        pass
+
+    def protocol_client(self, ctx: Context, command):
+        pass
+
+    def protocol_server(self, ctx: Context, response):
+        pass
+
+    def filter_report(self, ctx: Context, filter_kind, name, message):
+        pass
+
+    def filter_response(self, ctx: Context, phase, response, param=None):
+        pass
+
+    def timeout(self, ctx: Context, phase):
+        pass
+
+
+# noinspection PyUnusedLocal,PyMethodMayBeStatic
+class IFilterSmtpIn:
+    def connect(self, ctx: Context, src, dest):
+        return ResultForFilter(ctx).proceed()
+
+    def helo(self, ctx: Context, identity):
+        return ResultForFilter(ctx).proceed()
+
+    def ehlo(self, ctx: Context, identity):
+        return ResultForFilter(ctx).proceed()
+
+    def starttls(self, ctx: Context, ssl_string):
+        return ResultForFilter(ctx).proceed()
+
+    def auth(self, ctx: Context, auth):
+        return ResultForFilter(ctx).proceed()
+
+    def mail_from(self, ctx: Context, address):
+        return ResultForFilter(ctx).proceed()
+
+    def rcpt_to(self, ctx: Context, address):
+        return ResultForFilter(ctx).proceed()
+
+    def data(self, ctx: Context, args):
+        return ResultForFilter(ctx).proceed()
+
+    def data_line(self, ctx: Context, line):
+        return ResultForFilter(ctx).dataline(line)
+
+    def commit(self, ctx: Context, args):
+        return ResultForFilter(ctx).proceed()
+
+
+class ResultForFilter:
+    def __init__(self, ctx: Context):
+        self.ctx = ctx
+
+    def _complete(self, cmd, *args):
+        if cmd == 'dataline':
+            result = '|'.join(['filter-dataline', self.ctx.sid, self.ctx.token, args[0]])
+        else:
+            result = '|'.join(['filter-result', self.ctx.sid, self.ctx.token, cmd, *args])
+        return result
+
+    def proceed(self):
+        return self._complete('proceed')
+
+    def junk(self):
+        return self._complete('junk')
+
+    def reject(self, error):
+        return self._complete('reject', error)
+
+    def disconnect(self, error):
+        return self._complete('disconnect', error)
+
+    def rewrite(self, parameter):
+        return self._complete('rewrite', parameter)
+
+    def report(self, parameter):
+        return self._complete('report', parameter)
+
+    def dataline(self, line):
+        return self._complete('dataline', line)
+
+
 class StateMgr:
     states = {}
 
     @classmethod
-    def get(cls, name):
+    def get(cls, name: str):
         if name not in cls.states:
             cls.states[name] = {}
         return cls.states[name]
 
     @classmethod
-    def delete(cls, name):
+    def delete(cls, name: str):
         del cls.states[name]
